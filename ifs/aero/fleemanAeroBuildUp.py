@@ -2,11 +2,11 @@ import numpy as np
 import math
 
 class Aero:
-    def __init__(self, noseFineness, bodyLenFt, bodyDiamFt, sRef,
+    def __init__(self, noseFineness, bodyLen, bodyDiam, sRef,
                  bodyWidth, bodyHeight):
         self.sRef         = sRef
-        self.bodyLenFt    = bodyLenFt
-        self.bodyDiamFt   = bodyDiamFt
+        self.bodyLen      = bodyLen
+        self.bodyDiam     = bodyDiam
         self.noseFineness = noseFineness
         self.bodyWidth    = bodyWidth
         self.bodyHeight   = bodyHeight
@@ -28,22 +28,23 @@ class Aero:
         else:
             waveDrag = 0.0
         
-        skinDrag = (0.053*(self.bodyLenFt/self.bodyDiamFt)*
-                    math.pow(mach/(qBar*self.bodyLenFt)))
-        
+        skinDrag = (0.053*(self.bodyLen/self.bodyDiam)*
+                    math.pow(mach/(qBar*self.bodyLen)))
+
         Cd0 = waveDrag + baseDrag + skinDrag
         
         #normal
         Cn  = self.bodyWidth/self.bodyHeight*math.cos(phi)**2
         Cn += self.bodyHeight/self.bodyWidth*math.sin(phi)**2
         Cn *= (abs(math.sin(2*alpha)*math.cos(alpha/2)) + 
-               1.3*self.bodyLenFt/self.bodyDiamFt*math.sin(alpha)**2)
+               1.3*self.bodyLen/self.bodyDiam*math.sin(alpha)**2)
         
         #body
-        Cy = Cn*math.sin(phi)
-        Cz = Cn*math.cos(phi)
+        Cx = -Cd0*math.cos(alpha)
+        Cy = -Cn*math.cos(phi)
+        Cz = -Cn*math.sin(phi)
 
-        aeroForces  = np.array([-Cd0,Cy,Cz])
-        aeroForces *= 0.5*rho*velMag*velMag
+        aeroForces  = np.array([Cx,Cy,Cz])
+        aeroForces *= qBar*self.sRef
 
         return aeroForces
