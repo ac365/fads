@@ -20,7 +20,7 @@ class Aero:
         else:
             baseDrag = (0.12 + 0.13*mach*mach)
         if powerOn:
-            baseDrag *= (1-Ae/self.sRef)
+            baseDrag *= (1-Ae/self._sRef)
 
         if mach >= 0.8:
             waveDrag = ((1.586 + 1.834/(mach*mach))*
