@@ -14,7 +14,7 @@ class Aero:
     def computeForces(self, phi:np.double, alpha:np.double,
                       mach:np.double, qBar:np.double, powerOn:bool,
                       Ae:np.double):
-        #axial
+        #zero lift drag
         if mach >= 1.0:
             baseDrag = 0.25/mach
         else:
@@ -39,10 +39,13 @@ class Aero:
         Cn *= (abs(math.sin(2*alpha)*math.cos(alpha/2)) + 
                1.3*self._bodyLen/self._bodyDiam*math.sin(alpha)**2)
         
+        #drag
+        Cd = Cn*math.sin(alpha) + Cd0*math.cos(alpha)
+        
         #body
-        Cx = -Cn*math.sin(alpha) - Cd0*math.cos(alpha)
+        Cx = -Cd*math.cos(alpha)
         Cy = -Cn*math.cos(phi)
-        Cz = -Cn*math.sin(phi) + Cd0*math.sin(alpha)
+        Cz = -Cn*math.sin(phi) + Cd*math.sin(alpha)
 
         aeroForces  = np.array([Cx,Cy,Cz])
         aeroForces *= qBar*self._sRef
