@@ -2,8 +2,8 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-from ifs.aero.fleemanAero import Aero
-from ifs.earth.ussa1976   import USSA1976
+from ifs.eom.aero.fleemanAero import Aero
+from ifs.eom.atmos.ussa1976   import USSA1976
 
 #init aero and atmosphere
 aero      = Aero(bodyLen=10, bodyDiam=1, noseFineness=5, bodyWidth=1,
