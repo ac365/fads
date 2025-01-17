@@ -1,12 +1,17 @@
 import math
 import numpy as np
 
+from ifs.eom.aero.fleemanAero import Aero
+from ifs.eom.atmos.ussa1976   import USSA1976
+
 class EOM:
     def __init__(self, initEuler, initPos, initVel):
         #TODO: init properly
         self._quat = self._initQuaternion(initEuler)
         self._pos  = initPos
         self._vel  = initVel
+
+        self._atmos = USSA1976()
 
     def _initQuaternion(self, euler):
         psi   = euler[0]
@@ -51,7 +56,7 @@ class EOM:
         b2e[0][0] = q0*q0 + q1*q1 - q2*q2 - q3*q3
         b2e[0][1] = 2*(q1*q2 + q0*q3)
         b2e[0][2] = 2*(q1*q3 - q0*q2)
-        b2e[1][0] = 2*(q1*q2 + q0*q3)
+        b2e[1][0] = 2*(q1*q2 - q0*q3)
         b2e[1][1] = q0*q0 - q1*q1 + q2*q2 - q3*q3
         b2e[1][2] = 2*(q2*q3 + q0*q1)
         b2e[2][0] = 2*(q1*q3 + q0*q2)
@@ -59,3 +64,13 @@ class EOM:
         b2e[2][2] = q0*q0 - q1*q1 - q2*q2 + q3*q3
 
         return b2e
+    
+    def calculateBodyForces(self):
+        #atmospheric params
+        rho, a = self._atmos.getAtmosParams(-self._pos[3])[2:]
+        velMag = np.linalg.norm(self._vel)
+        qBar   = 0.5*rho*velMag*velMag
+        mach   = velMag/a
+
+        #TODO: call aero here... but where to initialize aero object..?
+
