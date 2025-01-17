@@ -40,3 +40,22 @@ class EOM:
                       [q, -r, 0, p], [r, q, -p, 0])
         
         self._quat += (0.5*np.matmul(m,self._quat) + k*l*self._quat)*dt
+
+    def calculateBodyToEarth(self):
+        q0 = self._quat[0]
+        q1 = self._quat[1]
+        q2 = self._quat[2]
+        q3 = self._quat[3]
+
+        b2e = np.zeros([3,3])
+        b2e[0][0] = q0*q0 + q1*q1 - q2*q2 - q3*q3
+        b2e[0][1] = 2*(q1*q2 + q0*q3)
+        b2e[0][2] = 2*(q1*q3 - q0*q2)
+        b2e[1][0] = 2*(q1*q2 + q0*q3)
+        b2e[1][1] = q0*q0 - q1*q1 + q2*q2 - q3*q3
+        b2e[1][2] = 2*(q2*q3 + q0*q1)
+        b2e[2][0] = 2*(q1*q3 + q0*q2)
+        b2e[2][1] = 2*(q2*q3 - q0*q1)
+        b2e[2][2] = q0*q0 - q1*q1 - q2*q2 + q3*q3
+
+        return b2e
