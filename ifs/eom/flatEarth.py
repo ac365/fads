@@ -5,15 +5,18 @@ from ifs.eom.aero.fleemanAero import Aero
 from ifs.eom.atmos.ussa1976   import USSA1976
 
 class EOM:
-    def __init__(self, initEuler, initPos, initVel):
-        #TODO: init properly
+    def __init__(self, initEuler:np.array, initPos:np.array,
+                 initVel:np.array, body:dict):
+        #initial conditions
         self._quat = self._initQuaternion(initEuler)
         self._pos  = initPos
         self._vel  = initVel
 
+        #objects
         self._atmos = USSA1976()
+        self._aero  = Aero(body)
 
-    def _initQuaternion(self, euler):
+    def _initQuaternion(self, euler:np.array):
         psi   = euler[0]
         theta = euler[1]
         phi   = euler[2]
@@ -29,7 +32,7 @@ class EOM:
         
         return np.array([q0, q1, q2, q3])
 
-    def updateQuaternion(self, omega, dt):
+    def updateQuaternion(self, omega:np.array, dt:np.double):
         p = omega[0]
         q = omega[1]
         r = omega[2]
@@ -66,11 +69,27 @@ class EOM:
         return b2e
     
     def calculateBodyForces(self):
-        #atmospheric params
+        #quaternion
+        q0 = self._quat[0]
+        q1 = self._quat[1]
+        q2 = self._quat[2]
+        q3 = self._quat[3]
+
+        #thrust
+        thrust = np.zeros(3) #TODO: call to propulsion object here
+
+        #aero forces
         rho, a = self._atmos.getAtmosParams(-self._pos[3])[2:]
         velMag = np.linalg.norm(self._vel)
-        qBar   = 0.5*rho*velMag*velMag
-        mach   = velMag/a
-
-        #TODO: call aero here... but where to initialize aero object..?
-
+        
+        qBar  = 0.5*rho*velMag*velMag
+        mach  = velMag/a
+        alpha = math.acos(self._vel[0]/velMag)
+        phi   = math.atan2(2*(q2*q3 + q0*q1),
+                          (q0*q0 - q1*q1 - q2*q2 + q3*q3))
+        
+        #TODO: powerOn should be dependent on propulsion...
+        aeroForces = self._aero.computeForces(phi, alpha, mach, qBar,
+                                              powerOn=False) 
+        
+        return aeroForces + thrust
