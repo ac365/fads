@@ -2,25 +2,24 @@ import numpy as np
 import math
 
 class Aero:
-    def __init__(self, noseFineness, bodyLen, bodyDiam, bodyWidth, 
-                 bodyHeight):
-        self._bodyLen      = bodyLen
-        self._bodyDiam     = bodyDiam
-        self._noseFineness = noseFineness
-        self._bodyWidth    = bodyWidth
-        self._bodyHeight   = bodyHeight
-        self._sRef         = math.pi/4*bodyWidth*bodyHeight
+    def __init__(self, body:dict):
+        self._bodyLen      = body["bodyLen"]
+        self._bodyDiam     = body["bodyDiam"]
+        self._noseFineness = body["noseFineness"]
+        self._bodyWidth    = body["bodyWidth"]
+        self._bodyHeight   = body["bodyHeight"]
+        self._Ae           = body["Ae"]
+        self._sRef         = math.pi/4*self._bodyWidth*self._bodyHeight
     
     def computeForces(self, phi:np.double, alpha:np.double,
-                      mach:np.double, qBar:np.double, powerOn:bool,
-                      Ae:np.double):
+                      mach:np.double, qBar:np.double, powerOn:bool):
         #zero lift drag
         if mach >= 1.0:
             baseDrag = 0.25/mach
         else:
             baseDrag = (0.12 + 0.13*mach*mach)
         if powerOn:
-            baseDrag *= (1-Ae/self.sRef)
+            baseDrag *= (1-self._Ae/self._sRef)
 
         if mach >= 0.8:
             waveDrag = ((1.586 + 1.834/(mach*mach))*
