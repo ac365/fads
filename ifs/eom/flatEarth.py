@@ -12,6 +12,9 @@ class EOM:
         self._pos  = initPos
         self._vel  = initVel
 
+        #mass
+        self._mass = body["inertMass"] + body["propellantMass"]
+
         #objects
         self._atmos = USSA1976()
         self._aero  = Aero(body)
@@ -84,7 +87,7 @@ class EOM:
         
         qBar  = 0.5*rho*velMag*velMag
         mach  = velMag/a
-        alpha = math.acos(self._vel[0]/velMag)
+        alpha = math.atan(self._vel[2]/self.vel[0])
         phi   = math.atan2(2*(q2*q3 + q0*q1),
                           (q0*q0 - q1*q1 - q2*q2 + q3*q3))
         
@@ -93,3 +96,62 @@ class EOM:
                                               powerOn=False) 
         
         return aeroForces + thrust
+
+    def calculateBodyRates(self, accCmd:np.array): 
+        #NOTE: this function is actually a pseudo-autopilot        
+        
+        #quaternion
+        q0 = self._quat[0]
+        q1 = self._quat[1]
+        q2 = self._quat[2]
+        q3 = self._quat[3]
+
+        #aero params
+        rho, a = self._atmos.getAtmosParams(-self._pos[2])[2:]
+        velMag = np.linalg.norm(self._vel)
+        
+        qBar  = 0.5*rho*velMag*velMag
+        mach  = velMag/a
+        phi   = math.atan2(2*(q2*q3 + q0*q1),
+                          (q0*q0 - q1*q1 - q2*q2 + q3*q3))
+
+        #command should be perpendicular to velocity
+        velHat  = self._vel/np.linalg.norm(self._vel)
+        cmdHat  = accCmd/np.linalg.norm(accCmd)
+        accCmd -= np.dot(accCmd,velHat)*velHat
+
+        #convert acceleration command to aoa command
+        aoaMin = 0
+        aoaMax = math.radians(25)
+        tol    = math.radians(0.001)
+
+        hiVel   = np.array([math.cos(aoaMax),0,math.sin(aoaMax)])
+        hiLift  = self._aero.computeForces(phi,aoaMax,mach,qBar,False)
+        hiLift -= np.dot(hiLift,hiVel)*hiVel
+        hiLift  = np.linalg.norm(hiLift)
+        loVel   = np.array([math.cos(aoaMin),0,math.sin(aoaMin)])
+        loLift  = self._aero.computeForces(phi,aoaMin,mach,qBar,False)
+        loLift -= np.dot(loLift,loVel)*loVel
+        loLift  = np.linalg.norm(loLift)
+            #TODO: powerOn should depend on thrust object
+
+        ctr = 1
+        while ctr < 50 and (aoaMax - aoaMin) >tol:
+            guess  = (aoaMin + aoaMax)/2
+            gVel   = np.array([math.cos(guess),0,math.sin(guess)])
+            gLift  = self._aero.computeForces(phi,guess,mach,qBar,False)
+                #TODO: powerOn should depend on thrust object
+            gLift -= np.dot(gLift,gVel)*gVel
+            gLift  = np.linalg.norm(gLift)
+            
+            lErr = loLift/self._mass - np.linalg.norm(accCmd)
+            gErr = gLift/self._mass - np.linalg.norm(accCmd) 
+
+            if np.sign(gErr) == np.sign(lErr):
+                aoaMin = guess
+                loLift = gLift
+            else:
+                aoaMax = guess
+
+            ctr += 1
+        aoaCmd = guess            
