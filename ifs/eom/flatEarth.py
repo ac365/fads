@@ -115,10 +115,13 @@ class EOM:
         phi   = math.atan2(2*(q2*q3 + q0*q1),
                            (q0*q0 - q1*q1 - q2*q2 + q3*q3))
 
-        #command should be perpendicular to velocity
+        #command should be perpendicular to velocity and g-limited
         velHat  = self._vel/np.linalg.norm(self._vel)
         accCmd -= np.dot(accCmd,velHat)*velHat
         cmdHat  = accCmd/np.linalg.norm(accCmd)
+        if np.linalg.norm(accCmd) > 45:
+            accCmd = cmdHat*45
+            #TODO: g-limit shouldn't be hard-coded
 
         #convert acceleration command to aoa command
         aoaMin = 0
