@@ -87,12 +87,12 @@ class EOM:
         
         qBar  = 0.5*rho*velMag*velMag
         mach  = velMag/a
-        alpha = math.atan(self._vel[2]/self.vel[0])
+        aoa   = math.atan(self._vel[2]/self.vel[0])
         phi   = math.atan2(2*(q2*q3 + q0*q1),
                           (q0*q0 - q1*q1 - q2*q2 + q3*q3))
         
         #TODO: powerOn should be dependent on propulsion...
-        aeroForces = self._aero.computeForces(phi, alpha, mach, qBar,
+        aeroForces = self._aero.computeForces(phi, aoa, mach, qBar,
                                               powerOn=False) 
         
         return aeroForces + thrust
@@ -113,12 +113,13 @@ class EOM:
         qBar  = 0.5*rho*velMag*velMag
         mach  = velMag/a
         phi   = math.atan2(2*(q2*q3 + q0*q1),
-                          (q0*q0 - q1*q1 - q2*q2 + q3*q3))
+                           (q0*q0 - q1*q1 - q2*q2 + q3*q3))
+        self._phi = phi        
 
         #command should be perpendicular to velocity
         velHat  = self._vel/np.linalg.norm(self._vel)
-        cmdHat  = accCmd/np.linalg.norm(accCmd)
         accCmd -= np.dot(accCmd,velHat)*velHat
+        cmdHat  = accCmd/np.linalg.norm(accCmd)
 
         #convert acceleration command to aoa command
         aoaMin = 0
@@ -136,7 +137,7 @@ class EOM:
             #TODO: powerOn should depend on thrust object
 
         ctr = 1
-        while ctr < 50 and (aoaMax - aoaMin) >tol:
+        while ctr < 50 and (aoaMax - aoaMin) > tol:
             guess  = (aoaMin + aoaMax)/2
             gVel   = np.array([math.cos(guess),0,math.sin(guess)])
             gLift  = self._aero.computeForces(phi,guess,mach,qBar,False)
@@ -154,4 +155,12 @@ class EOM:
                 aoaMax = guess
 
             ctr += 1
-        aoaCmd = guess            
+        aoaDes = guess
+        aoa    = math.atan(self._vel[2]/self._vel[0])
+        aoaCmd = aoaDes - aoa
+
+        #convert acceleration command to phi command
+        phiDes = math.atan2(cmdHat[2],cmdHat[1])
+        phiCmd = (phi-phiDes+math.pi)%(2*math.pi) - math.pi
+        if phiCmd < -math.pi:
+            phiCmd += 2*math.pi
