@@ -114,7 +114,6 @@ class EOM:
         mach  = velMag/a
         phi   = math.atan2(2*(q2*q3 + q0*q1),
                            (q0*q0 - q1*q1 - q2*q2 + q3*q3))
-        self._phi = phi        
 
         #command should be perpendicular to velocity
         velHat  = self._vel/np.linalg.norm(self._vel)
