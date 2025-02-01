@@ -9,10 +9,11 @@ class EOM:
     def __init__(self, initEuler:np.array, initPos:np.array,
                  initVel:np.array, initOmega:np.array, body:dict):
         #initial conditions
-        self._quat  = eulerToQuaternion(initEuler)
-        self._pos   = initPos
-        self._vel   = initVel
-        self._omega = initOmega
+        self._quat   = eulerToQuaternion(initEuler)
+        self._pos    = initPos
+        self._velBdy = initVel
+        self._omega  = initOmega
+        self._e2b    = self._calculateEarthToBody()
 
         #mass
         self._mass = body["inertMass"] + body["propellantMass"]
@@ -21,10 +22,10 @@ class EOM:
         self._atmos = USSA1976()
         self._aero  = Aero(body)
 
-    def updateQuaternion(self, omega:np.array, dt:np.double):
-        p = omega[0]
-        q = omega[1]
-        r = omega[2]
+    def _updateQuaternion(self, dt:np.double):
+        p = self._omega[0]
+        q = self._omega[1]
+        r = self._omega[2]
 
         q0 = self._quat[0]
         q1 = self._quat[1]
@@ -38,26 +39,26 @@ class EOM:
         
         self._quat += (0.5*np.matmul(m,self._quat) + k*l*self._quat)*dt
 
-    def calculateBodyToEarth(self):
+    def _calculateEarthToBody(self):
         q0 = self._quat[0]
         q1 = self._quat[1]
         q2 = self._quat[2]
         q3 = self._quat[3]
 
-        b2e = np.zeros([3,3])
-        b2e[0][0] = q0*q0 + q1*q1 - q2*q2 - q3*q3
-        b2e[0][1] = 2*(q1*q2 + q0*q3)
-        b2e[0][2] = 2*(q1*q3 - q0*q2)
-        b2e[1][0] = 2*(q1*q2 - q0*q3)
-        b2e[1][1] = q0*q0 - q1*q1 + q2*q2 - q3*q3
-        b2e[1][2] = 2*(q2*q3 + q0*q1)
-        b2e[2][0] = 2*(q1*q3 + q0*q2)
-        b2e[2][1] = 2*(q2*q3 - q0*q1)
-        b2e[2][2] = q0*q0 - q1*q1 - q2*q2 + q3*q3
+        e2b = np.zeros([3,3])
+        e2b[0][0] = q0*q0 + q1*q1 - q2*q2 - q3*q3
+        e2b[0][1] = 2*(q1*q2 + q0*q3)
+        e2b[0][2] = 2*(q1*q3 - q0*q2)
+        e2b[1][0] = 2*(q1*q2 - q0*q3)
+        e2b[1][1] = q0*q0 - q1*q1 + q2*q2 - q3*q3
+        e2b[1][2] = 2*(q2*q3 + q0*q1)
+        e2b[2][0] = 2*(q1*q3 + q0*q2)
+        e2b[2][1] = 2*(q2*q3 - q0*q1)
+        e2b[2][2] = q0*q0 - q1*q1 - q2*q2 + q3*q3
 
-        return b2e
+        self._e2b = e2b
     
-    def calculateBodyForces(self):
+    def _calculateBodyForces(self):
         #quaternion
         q0 = self._quat[0]
         q1 = self._quat[1]
@@ -83,72 +84,34 @@ class EOM:
         
         return aeroForces + thrust
 
-    def calculateBodyRates(self, accCmd:np.array): 
-        #NOTE: this function is actually a pseudo-autopilot        
-        
-        #quaternion
-        q0 = self._quat[0]
-        q1 = self._quat[1]
-        q2 = self._quat[2]
-        q3 = self._quat[3]
+    def calculateBodyRates(self, omegaDot:np.array, dt:np.double): 
+        #NOTE: this is 5dof... angular acceleration from psuedo-autopilot
+        self._omega += omegaDot*dt
+            #TODO: should dt be an input or member var...?
 
-        #aero params
-        rho, a = self._atmos.getAtmosParams(-self._pos[2])[2:]
-        velMag = np.linalg.norm(self._vel)
-        
-        qBar  = 0.5*rho*velMag*velMag
-        mach  = velMag/a
-        phi   = math.atan2(2*(q2*q3 + q0*q1),
-                           (q0*q0 - q1*q1 - q2*q2 + q3*q3))
+    def newtonsEquations(self, dt:np.double):
+        gBdy = np.matmul(self._e2b,np.array([0,0,9.81]))
 
-        #command should be perpendicular to velocity and g-limited
-        velHat  = self._vel/np.linalg.norm(self._vel)
-        accCmd -= np.dot(accCmd,velHat)*velHat
-        cmdHat  = accCmd/np.linalg.norm(accCmd)
-        if np.linalg.norm(accCmd) > 45:
-            accCmd = cmdHat*45
-            #TODO: g-limit shouldn't be hard-coded
+        bdyForces = self._calculateBodyForces()
+        fx = bdyForces[0]
+        fy = bdyForces[1]
+        fz = bdyForces[2]
 
-        #convert acceleration command to aoa command
-        aoaMin = 0
-        aoaMax = math.radians(25)
-        tol    = math.radians(0.001)
+        u = self._velBdy[0]
+        v = self._velBdy[1]
+        w = self._velBdy[2]
 
-        hiVel   = np.array([math.cos(aoaMax),0,math.sin(aoaMax)])
-        hiLift  = self._aero.computeForces(phi,aoaMax,mach,qBar,False)
-        hiLift -= np.dot(hiLift,hiVel)*hiVel
-        hiLift  = np.linalg.norm(hiLift)
-        loVel   = np.array([math.cos(aoaMin),0,math.sin(aoaMin)])
-        loLift  = self._aero.computeForces(phi,aoaMin,mach,qBar,False)
-        loLift -= np.dot(loLift,loVel)*loVel
-        loLift  = np.linalg.norm(loLift)
-            #TODO: powerOn should depend on thrust object
+        p = self._omega[0]
+        q = self._omega[1]
+        r = self._omega[2]
 
-        ctr = 1
-        while ctr < 50 and (aoaMax - aoaMin) > tol:
-            guess  = (aoaMin + aoaMax)/2
-            gVel   = np.array([math.cos(guess),0,math.sin(guess)])
-            gLift  = self._aero.computeForces(phi,guess,mach,qBar,False)
-                #TODO: powerOn should depend on thrust object
-            gLift -= np.dot(gLift,gVel)*gVel
-            gLift  = np.linalg.norm(gLift)
-            
-            lErr = loLift/self._mass - np.linalg.norm(accCmd)
-            gErr = gLift/self._mass - np.linalg.norm(accCmd) 
+        ax = r*v - q*w + fx/self._mass + gBdy[0]
+        ay = p*w - r*u + fy/self._mass + gBdy[1]
+        az = q*u - p*v + fz/self._mass + gBdy[2]
 
-            if np.sign(gErr) == np.sign(lErr):
-                aoaMin = guess
-                loLift = gLift
-            else:
-                aoaMax = guess
-
-            ctr += 1
-        aoaDes = guess
-        aoa    = math.atan(self._vel[2]/self._vel[0])
-        aoaCmd = aoaDes - aoa
-
-        #convert acceleration command to phi command
-        phiDes = math.atan2(cmdHat[2],cmdHat[1])
-        phiCmd = (phi-phiDes+math.pi)%(2*math.pi) - math.pi
-        if phiCmd < -math.pi:
-            phiCmd += 2*math.pi
+        #update states
+        accBdy        = np.array([ax,ay,az])
+        self._velBdy += accBdy*dt
+        self._pos    += self._velBdy*dt
+        self._updateQuaternion()
+        self._calculateEarthToBody()
