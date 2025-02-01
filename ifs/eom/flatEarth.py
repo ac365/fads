@@ -4,13 +4,15 @@ import numpy as np
 from ifs.eom.aero.fleemanAero import Aero
 from ifs.eom.atmos.ussa1976   import USSA1976
 
+from utils.utils import eulerToQuaternion
 class EOM:
     def __init__(self, initEuler:np.array, initPos:np.array,
-                 initVel:np.array, body:dict):
+                 initVel:np.array, initOmega:np.array, body:dict):
         #initial conditions
-        self._quat = self._initQuaternion(initEuler)
-        self._pos  = initPos
-        self._vel  = initVel
+        self._quat  = eulerToQuaternion(initEuler)
+        self._pos   = initPos
+        self._vel   = initVel
+        self._omega = initOmega
 
         #mass
         self._mass = body["inertMass"] + body["propellantMass"]
@@ -18,22 +20,6 @@ class EOM:
         #objects
         self._atmos = USSA1976()
         self._aero  = Aero(body)
-
-    def _initQuaternion(self, euler:np.array):
-        psi   = euler[0]
-        theta = euler[1]
-        phi   = euler[2]
-
-        q0 = (np.cos(psi/2)*np.cos(theta/2)*np.cos(phi/2) + 
-              np.sin(psi/2)*np.sin(theta/2)*np.sin(phi/2))
-        q1 = (np.cos(psi/2)*np.cos(theta/2)*np.sin(phi/2) - 
-              np.sin(psi/2)*np.sin(theta/2)*np.cos(phi/2))
-        q2 = (np.cos(psi/2)*np.sin(theta/2)*np.cos(phi/2) +
-              np.sin(psi/2)*np.cos(theta/2)*np.sin(phi/2))
-        q3 = (np.sin(psi/2)*np.cos(theta/2)*np.cos(phi/2) -
-              np.cos(psi/2)*np.sin(theta/2)*np.sin(phi/2))
-        
-        return np.array([q0, q1, q2, q3])
 
     def updateQuaternion(self, omega:np.array, dt:np.double):
         p = omega[0]
@@ -87,7 +73,7 @@ class EOM:
         
         qBar  = 0.5*rho*velMag*velMag
         mach  = velMag/a
-        aoa   = math.atan(self._vel[2]/self.vel[0])
+        aoa   = math.atan(-self._vel[2]/self.vel[0])
         phi   = math.atan2(2*(q2*q3 + q0*q1),
                           (q0*q0 - q1*q1 - q2*q2 + q3*q3))
         
