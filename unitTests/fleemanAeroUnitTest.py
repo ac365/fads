@@ -2,12 +2,20 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-from ifs.aero.fleemanAero import Aero
-from ifs.earth.ussa1976   import USSA1976
+from ifs.eom.aero.fleemanAero import Aero
+from ifs.eom.atmos.ussa1976   import USSA1976
+
+#body params
+body = {}
+body["bodyLen"]      = 10
+body["bodyDiam"]     = 1
+body["noseFineness"] = 5
+body["bodyWidth"]    = 1
+body["bodyHeight"]   = 1
+body["Ae"]           = 1
 
 #init aero and atmosphere
-aero      = Aero(bodyLen=10, bodyDiam=1, noseFineness=5, bodyWidth=1,
-                 bodyHeight=1)
+aero      = Aero(body)
 atmos     = USSA1976()
 T,p,rho,a = atmos.getAtmosParams(0)
 sRef      = math.pi/4
@@ -21,7 +29,7 @@ for mach in machBkpts:
     qBar       = 0.5*rho*(mach*a)*(mach*a)
     
     aeroForces = aero.computeForces(phi=0, alpha=0, mach=mach, qBar=qBar, 
-                       powerOn=False, Ae=1)
+                       powerOn=False)
     aeroCoeff  = aeroForces/(qBar*sRef)
 
     Cn       = -aeroCoeff[1]/math.cos(0)
@@ -47,7 +55,7 @@ for alpha in alphaBkpts:
     qBar = 0.5*rho*(mach*a)*(mach*a)
     
     aeroForces = aero.computeForces(phi=0, alpha=alpha, mach=mach, 
-                                    qBar=qBar, powerOn=False, Ae=1)
+                                    qBar=qBar, powerOn=False)
     aeroCoeff  = aeroForces/(qBar*sRef)
 
     Cn[ctr] = -aeroCoeff[1]/math.cos(0)

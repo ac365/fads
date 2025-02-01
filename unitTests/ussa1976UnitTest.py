@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from ifs.earth.ussa1976 import USSA1976
+from ifs.eom.atmos.ussa1976 import USSA1976
 
 ctr      = 0
 temp     = np.empty([84999,1])
