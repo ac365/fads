@@ -3,5 +3,5 @@ from dataclasses import dataclass
 
 @dataclass
 class apEvent:
-    angAcc:np.array
+    angAcc:np.array = np.zeros(3,)
     name:str = "ap"

@@ -3,6 +3,5 @@ from dataclasses import dataclass
 
 @dataclass
 class guideEvent:
-    accCmd:np.array
-    
+    accCmd:np.array = np.zeros(3,)
     name:str = "guide"
