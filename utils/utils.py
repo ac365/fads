@@ -26,3 +26,15 @@ def eulerToQuaternion(euler:np.array):
           np.cos(psi/2)*np.sin(theta/2)*np.sin(phi/2))
         
     return np.array([q0, q1, q2, q3])
+
+def quaternionToEuler(quat:np.array):
+    q0 = quat[0]
+    q1 = quat[1]
+    q2 = quat[2]
+    q3 = quat[3]
+
+    psi   = math.atan2(2*(q1*q2 + q0*q3),q0*q0 + q1*q1 - q2*q2 -q3*q3)
+    theta = math.asin(-2*(q1*q3 - q0*q2))
+    phi   = math.atan2(2*(q2*q3 + q0*q1),(q0*q0 - q1*q1 - q2*q2 + q3*q3))
+
+    return psi, theta, phi
