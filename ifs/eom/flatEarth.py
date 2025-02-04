@@ -3,17 +3,17 @@ import numpy as np
 
 from ifs.eom.aero.fleemanAero import Aero
 from ifs.eom.atmos.ussa1976   import USSA1976
-
-from utils.utils import eulerToQuaternion
-class EOM:
+from core.components.eomBase  import eomBase
+from utils.utils              import eulerToQuaternion
+class EOM(eomBase):
     def __init__(self, initEuler:np.array, initPos:np.array,
                  initVel:np.array, initOmega:np.array, body:dict):
         #initial conditions
         self._quat   = eulerToQuaternion(initEuler)
-        self._pos    = initPos
-        self._velBdy = initVel
-        self._omega  = initOmega
         self._e2b    = self._calculateEarthToBody()
+        self._posNed = initPos
+        self._velNed = np.linalg.inv(self._e2b)*np.array([initVel,0,0])
+        self._omega  = initOmega
 
         #mass
         self._mass = body["inertMass"] + body["propellantMass"]
@@ -84,22 +84,21 @@ class EOM:
         
         return aeroForces + thrust
 
-    def calculateBodyRates(self, omegaDot:np.array, dt:np.double): 
+    def _eulerEquations(self, omegaDot:np.array, dt:np.double): 
         #NOTE: this is 5dof... angular acceleration from psuedo-autopilot
         self._omega += omegaDot*dt
             #TODO: should dt be an input or member var...?
 
-    def newtonsEquations(self, dt:np.double):
+    def _newtonsEquations(self, bdyForces:np.array):
         gBdy = np.matmul(self._e2b,np.array([0,0,9.81]))
-
-        bdyForces = self._calculateBodyForces()
         fx = bdyForces[0]
         fy = bdyForces[1]
         fz = bdyForces[2]
 
-        u = self._velBdy[0]
-        v = self._velBdy[1]
-        w = self._velBdy[2]
+        velBdy = self._e2b*self._velNed
+        u = velBdy[0]
+        v = velBdy[1]
+        w = velBdy[2]
 
         p = self._omega[0]
         q = self._omega[1]
@@ -108,10 +107,31 @@ class EOM:
         ax = r*v - q*w + fx/self._mass + gBdy[0]
         ay = p*w - r*u + fy/self._mass + gBdy[1]
         az = q*u - p*v + fz/self._mass + gBdy[2]
+        accBdy  = np.array([ax,ay,az])
 
+        return accBdy 
+
+    def step(self, omegaDot:np.array, dt:np.double):
+        bdyForces = self._calculateBodyForces()
+        self._eulerEquations(omegaDot,dt)
+        accBdy = self._newtonsEquations(bdyForces)
+        
         #update states
-        accBdy        = np.array([ax,ay,az])
-        self._velBdy += accBdy*dt
-        self._pos    += self._velBdy*dt
         self._updateQuaternion()
         self._calculateEarthToBody()
+        accNed = np.linalg.inv(self._e2b)*accBdy
+        self._velNed += accNed*dt
+        self._posNed += self._velNed*dt
+
+        #update event
+        self.event.quat      = self._quat
+        self.event.angRate   = self._omega
+        self.event.angAcc    = omegaDot
+        self.event.posNed    = self._posNed
+        self.event.velNed    = self._velNed
+        self.event.accNed    = accNed
+        self.event.e2b       = self._e2b
+        self.event.mass      = self._mass
+        self.event.bdyForces = bdyForces
+
+        return self.event
