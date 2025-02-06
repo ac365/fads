@@ -16,17 +16,14 @@ class Aero:
         #zero lift drag
         if mach >= 1.0:
             baseDrag = 0.25/mach
-        else:
-            baseDrag = (0.12 + 0.13*mach*mach)
-        if powerOn:
-            baseDrag *= (1-self._Ae/self._sRef)
-
-        if mach >= 0.8:
             waveDrag = ((1.586 + 1.834/(mach*mach))*
                         math.pow(math.atan(0.5/self._noseFineness),1.69))
         else:
+            baseDrag = 0.12 + 0.13*mach*mach
             waveDrag = 0.0
-        
+        if powerOn:
+            baseDrag *= (1-self._Ae/self._sRef)
+
         skinDrag = (0.053*(self._bodyLen/self._bodyDiam)*
                     math.pow(mach/(qBar*self._bodyLen),0.2))
 

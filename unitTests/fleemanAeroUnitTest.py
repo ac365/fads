@@ -5,20 +5,22 @@ import matplotlib.pyplot as plt
 from ifs.eom.aero.fleemanAero import Aero
 from ifs.eom.atmos.ussa1976   import USSA1976
 
-#body params
+#body params, from Fleeman pg. 591
 body = {}
-body["bodyLen"]      = 10
-body["bodyDiam"]     = 1
-body["noseFineness"] = 5
-body["bodyWidth"]    = 1
-body["bodyHeight"]   = 1
-body["Ae"]           = 1
+body["bodyLen"]        = 3.65506 #143.9in
+body["bodyDiam"]       = 0.2032  #8in
+body["noseFineness"]   = 2.4
+body["bodyWidth"]      = 0.2032  #8in, circle cross-section
+body["bodyHeight"]     = 0.2032  #8in, circle cross-section
+body["Ae"]             = 0.007238695 #11.22sq in 
+body["inertMass"]      = 166.4684    #367lb
+body["propellantMass"] = 0
 
 #init aero and atmosphere
 aero      = Aero(body)
 atmos     = USSA1976()
-T,p,rho,a = atmos.getAtmosParams(0)
-sRef      = math.pi/4
+T,p,rho,a = atmos.getAtmosParams(6096)
+sRef      = math.pi/4*body["bodyWidth"]*body["bodyHeight"]
 
 #zero lift drag unit test
 machBkpts  = np.arange(0.1,5,0.1)
